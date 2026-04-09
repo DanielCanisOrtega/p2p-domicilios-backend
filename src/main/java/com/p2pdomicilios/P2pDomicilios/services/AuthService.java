@@ -60,7 +60,7 @@ public class AuthService {
     }
 
     public AuthResponse login(LoginRequest request) {
-        // Autenticar usuario
+        // Autenticar usuario (puede ser username o email)
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
                         request.getUsername(),
@@ -68,8 +68,9 @@ public class AuthService {
                 )
         );
 
-        // Buscar usuario
+        // Buscar usuario por username o email
         User user = userRepository.findByUsername(request.getUsername())
+                .or(() -> userRepository.findByEmail(request.getUsername()))
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
         // Generar token JWT

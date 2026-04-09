@@ -7,14 +7,15 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/orders") // Ruta base para tus endpoints [cite: 179]
+@RequestMapping("/api/orders") // Ruta base para endpoints 
 public class ServicioController {
 
     @Autowired
     private ServicioService service;
 
-    @PostMapping("/create") // RF6: Crear solicitud [cite: 58]
-    public ResponseEntity<Servicio> crear(@RequestBody Servicio pedido) {
-        return ResponseEntity.ok(service.crearPedido(pedido));
-    }
+    @PostMapping("/create")
+public ResponseEntity<Servicio> create(@RequestBody Servicio servicio) {
+    Servicio nuevo = service.crearServicio(servicio); 
+    return ResponseEntity.ok(nuevo);
+}
 }

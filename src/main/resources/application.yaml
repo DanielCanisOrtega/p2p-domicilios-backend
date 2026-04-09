@@ -7,6 +7,7 @@ spring:
     user:
       name: admin
       password: password123
+      
 
   datasource:
     url: jdbc:postgresql://ep-billowing-waterfall-amep92kg-pooler.c-5.us-east-1.aws.neon.tech/neondb?sslmode=require
@@ -23,8 +24,13 @@ spring:
       hibernate:
         format_sql: true
 
+  jackson:
+    property-naming-strategy: SNAKE_CASE
+
 server:
   port: 8080
 
 jwt:
   secret: secret-key
+
+  

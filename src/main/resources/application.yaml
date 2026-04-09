@@ -1,13 +1,13 @@
 spring:
   application:
     name: P2pDomicilios
-  
+
   # ESTO ES LO QUE IMPORTA: debe estar alineado con 'datasource'
   security:
     user:
       name: admin
       password: password123
-      
+
 
   datasource:
     url: jdbc:postgresql://ep-billowing-waterfall-amep92kg-pooler.c-5.us-east-1.aws.neon.tech/neondb?sslmode=require
@@ -31,6 +31,5 @@ server:
   port: 8080
 
 jwt:
-  secret: secret-key
-
-  
+  secret: 404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970
+  expiration: 86400000 # 24 horas en milisegundos

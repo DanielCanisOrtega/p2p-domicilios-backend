@@ -1,14 +1,7 @@
 package com.p2pdomicilios.P2pDomicilios.entities;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreUpdate;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.Data;
 import org.locationtech.jts.geom.Coordinate;
 import org.locationtech.jts.geom.GeometryFactory;
@@ -27,10 +20,18 @@ public class Domiciliario {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id_domiciliario;
 
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "user_id", referencedColumnName = "id")
+    private User user;
+
     private Boolean disponible = false;
     private Double latitud;
     private Double longitud;
     private Boolean verificado = false;
+
+    private String vehiculo;
+    private String placa;
+    private Double calificacion;
 
     @JsonIgnore
     @Column(columnDefinition = "geometry(Point,4326)")

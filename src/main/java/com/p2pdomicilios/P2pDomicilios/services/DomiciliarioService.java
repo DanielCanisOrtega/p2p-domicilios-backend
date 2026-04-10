@@ -1,8 +1,10 @@
 package com.p2pdomicilios.P2pDomicilios.services;
 
+import com.p2pdomicilios.P2pDomicilios.dto.DomiciliarioDTO;
 import com.p2pdomicilios.P2pDomicilios.entities.Domiciliario;
 import com.p2pdomicilios.P2pDomicilios.repositories.DomiciliarioRepository;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -20,5 +22,11 @@ public class DomiciliarioService {
         double finalRadiusKm = (radiusKm == null || radiusKm <= 0) ? DEFAULT_RADIUS_KM : radiusKm;
         double radiusMeters = finalRadiusKm * 1000.0;
         return repository.findNearbyAvailableAndVerified(lat, lon, radiusMeters);
+    }
+
+    public List<DomiciliarioDTO> findNearbyDTO(double lat, double lon, Double radiusKm) {
+        return findNearby(lat, lon, radiusKm).stream()
+                .map(DomiciliarioDTO::fromEntity)
+                .collect(Collectors.toList());
     }
 }

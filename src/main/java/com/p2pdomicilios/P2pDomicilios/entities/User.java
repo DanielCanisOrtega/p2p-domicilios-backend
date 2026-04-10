@@ -41,6 +41,7 @@ public class User implements UserDetails {
 
     private String nombre;
     private String telefono;
+    private String numeroDocumento;
     private String estado;
 
     @Column(name = "fecha_registro")

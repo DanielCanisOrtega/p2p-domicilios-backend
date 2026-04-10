@@ -1,6 +1,6 @@
 package com.p2pdomicilios.P2pDomicilios.controllers;
 
-import com.p2pdomicilios.P2pDomicilios.entities.Domiciliario;
+import com.p2pdomicilios.P2pDomicilios.dto.DomiciliarioDTO;
 import com.p2pdomicilios.P2pDomicilios.services.DomiciliarioService;
 import java.util.List;
 import org.springframework.http.ResponseEntity;
@@ -20,11 +20,11 @@ public class DomiciliarioController {
     }
 
     @GetMapping("/nearby")
-    public ResponseEntity<List<Domiciliario>> nearby(
+    public ResponseEntity<List<DomiciliarioDTO>> nearby(
         @RequestParam double lat,
         @RequestParam double lon,
         @RequestParam(required = false) Double radiusKm
     ) {
-        return ResponseEntity.ok(service.findNearby(lat, lon, radiusKm));
+        return ResponseEntity.ok(service.findNearbyDTO(lat, lon, radiusKm));
     }
 }

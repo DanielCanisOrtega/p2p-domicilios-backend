@@ -18,13 +18,13 @@ public interface DomiciliarioRepository extends JpaRepository<Domiciliario, Inte
               AND d.verificado = true
               AND d.location IS NOT NULL
               AND ST_DWithin(
-                  d.location::geography,
-                  ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography,
+                  CAST(d.location AS geography),
+                  CAST(ST_SetSRID(ST_MakePoint(:lon, :lat), 4326) AS geography),
                   :radiusMeters
               )
             ORDER BY ST_Distance(
-                d.location::geography,
-                ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography
+                CAST(d.location AS geography),
+                CAST(ST_SetSRID(ST_MakePoint(:lon, :lat), 4326) AS geography)
             )
             """,
         nativeQuery = true

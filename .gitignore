@@ -41,3 +41,4 @@ target/
 # Documentación interna
 *.md
 !README.md
+*.sql

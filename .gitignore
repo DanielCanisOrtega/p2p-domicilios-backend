@@ -38,3 +38,6 @@ target/
 .env
 .idea
 .vscode
+# Documentación interna
+*.md
+!README.md

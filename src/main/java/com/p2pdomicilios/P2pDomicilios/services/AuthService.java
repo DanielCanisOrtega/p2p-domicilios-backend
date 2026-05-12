@@ -5,6 +5,9 @@ import com.p2pdomicilios.P2pDomicilios.dto.LoginRequest;
 import com.p2pdomicilios.P2pDomicilios.dto.RegisterRequest;
 import com.p2pdomicilios.P2pDomicilios.entities.User;
 import com.p2pdomicilios.P2pDomicilios.repositories.UserRepository;
+import com.p2pdomicilios.P2pDomicilios.repositories.DomiciliarioRepository;
+import com.p2pdomicilios.P2pDomicilios.entities.Domiciliario;
+import com.p2pdomicilios.P2pDomicilios.enums.Role;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -17,10 +20,11 @@ import java.time.LocalDateTime;
 @RequiredArgsConstructor
 public class AuthService {
 
-    private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final JwtService jwtService;
-    private final AuthenticationManager authenticationManager;
+        private final UserRepository userRepository;
+        private final DomiciliarioRepository domiciliarioRepository;
+        private final PasswordEncoder passwordEncoder;
+        private final JwtService jwtService;
+        private final AuthenticationManager authenticationManager;
 
     public AuthResponse register(RegisterRequest request) {
         // Validar si el usuario ya existe
@@ -46,6 +50,21 @@ public class AuthService {
                 .build();
 
         userRepository.save(user);
+
+                // If the new user is a domiciliario, create a Domiciliario row so the user appears
+                // in the `domiciliario` table and can be assigned later.
+                if (user.getRole() == Role.DOMICILIARIO) {
+                        Domiciliario d = new Domiciliario();
+                        d.setUser(user);
+                        d.setDisponible(false); // default not available until worker sets location
+                        d.setVerificado(false); // default not verified
+                        d.setLatitud(null);
+                        d.setLongitud(null);
+                        d.setVehiculo(null);
+                        d.setPlaca(null);
+                        d.setCalificacion(5.0);
+                        domiciliarioRepository.save(d);
+                }
 
         // Generar token JWT
         String token = jwtService.generateToken(user);

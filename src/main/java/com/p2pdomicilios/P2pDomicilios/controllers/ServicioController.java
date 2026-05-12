@@ -10,16 +10,22 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.server.ResponseStatusException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @RestController
 @RequestMapping("/api/orders") // Ruta base para endpoints 
 public class ServicioController {
+
+    private static final Logger log = LoggerFactory.getLogger(ServicioController.class);
 
     @Autowired
     private ServicioService service;
 
     @PostMapping("/create")
     public ResponseEntity<Servicio> create(@RequestBody Servicio servicio) {
+        log.info("POST /api/orders/create - tarifa recibida: {}", servicio.getTarifa());
+        log.debug("POST /api/orders/create - payload: {}", servicio);
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         if (principal instanceof User) {
             User u = (User) principal;
@@ -31,80 +37,21 @@ public class ServicioController {
         return ResponseEntity.ok(nuevo);
     }
 
-    @PostMapping("/{id}/accept")
-    public ResponseEntity<Servicio> accept(@PathVariable Long id) {
-        Servicio s = service.obtenerEstado(id);
-        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if (!(principal instanceof User)) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
-        User u = (User) principal;
-        if (u.getRole() != Role.DOMICILIARIO) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo domiciliarios pueden aceptar servicios");
-        if (s.getIdDomiciliario() == null || !s.getIdDomiciliario().equals(u.getId().longValue())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No estás asignado a este servicio");
-        }
-        Servicio actualizado = service.aceptarServicio(id);
-        return ResponseEntity.ok(actualizado);
-    }
-
-    @PostMapping("/{id}/assign/{domiciliarioUserId}")
-    public ResponseEntity<?> assign(@PathVariable Long id, @PathVariable Long domiciliarioUserId) {
-        try {
-            Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-            if (!(principal instanceof User)) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No autenticado");
-
-            User u = (User) principal;
-            if (u.getRole() != Role.CLIENT) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(java.util.Map.of("error", "Solo clientes pueden asignar. Tu rol es: " + u.getRole()));
-            }
-
-            Servicio s = service.obtenerEstado(id);
-            Long idClienteDelServicio = s.getIdCliente();
-            Long idClienteAutenticado = u.getId().longValue();
-
-            if (idClienteDelServicio == null) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(java.util.Map.of("error", "El servicio no tiene cliente asignado. idCliente es null"));
-            }
-
-            if (!idClienteDelServicio.equals(idClienteAutenticado)) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(java.util.Map.of(
-                        "error", "No eres el dueño de este servicio",
-                        "idClienteDelServicio", idClienteDelServicio,
-                        "idClienteAutenticado", idClienteAutenticado
-                    ));
-            }
-
-            Servicio actualizado = service.asignarDomiciliario(id, domiciliarioUserId, idClienteAutenticado);
-            return ResponseEntity.ok(actualizado);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(java.util.Map.of("error", "Exception: " + e.getMessage()));
-        }
-    }
-
-    @PostMapping("/{id}/reject")
-    public ResponseEntity<Servicio> reject(@PathVariable Long id) {
-        Servicio s = service.obtenerEstado(id);
-        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if (!(principal instanceof User)) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
-        User u = (User) principal;
-        if (u.getRole() != Role.DOMICILIARIO) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo domiciliarios pueden rechazar servicios");
-        if (s.getIdDomiciliario() == null || !s.getIdDomiciliario().equals(u.getId().longValue())) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No estás asignado a este servicio");
-        }
-        Servicio actualizado = service.rechazarServicio(id);
-        return ResponseEntity.ok(actualizado);
-    }
-
     @PostMapping("/{id}/counteroffer")
-    public ResponseEntity<Servicio> counterOffer(@PathVariable Long id, @RequestBody java.util.Map<String, Object> body) {
-        Double monto = null;
-        if (body.containsKey("monto")) {
+    public ResponseEntity<Servicio> counterOffer(
+        @PathVariable Long id,
+        @RequestBody(required = false) java.util.Map<String, Object> body,
+        @RequestParam(required = false) Double monto
+    ) {
+        Double montoFinal = monto;
+        if (montoFinal == null && body != null && body.containsKey("monto")) {
             Object m = body.get("monto");
-            if (m instanceof Number) monto = ((Number) m).doubleValue();
-            else if (m instanceof String) monto = Double.parseDouble((String) m);
+            if (m instanceof Number) montoFinal = ((Number) m).doubleValue();
+            else if (m instanceof String) montoFinal = Double.parseDouble((String) m);
+        }
+
+        if (montoFinal == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Debes enviar monto en el body JSON {\"monto\": 7000} o como query param monto=7000");
         }
 
         Servicio s = service.obtenerEstado(id);
@@ -113,17 +60,65 @@ public class ServicioController {
         User u = (User) principal;
 
         boolean isClient = (u.getRole() == Role.CLIENT && s.getIdCliente() != null && s.getIdCliente().equals(u.getId().longValue()));
-        boolean isDomic = (u.getRole() == Role.DOMICILIARIO && s.getIdDomiciliario() != null && s.getIdDomiciliario().equals(u.getId().longValue()));
-        if (!isClient && !isDomic) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo cliente o domiciliario asignado pueden hacer contraofertas");
+        boolean isDomic = u.getRole() == Role.DOMICILIARIO;
+        if (!isClient && !isDomic) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo cliente o domiciliario pueden hacer contraofertas");
+
+        if (isDomic && !"CREADO".equals(s.getEstado()) && !"OFERTA_EN_CURSO".equals(s.getEstado())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "El servicio no está disponible para contraoferta");
+        }
 
         String proposer = isClient ? "CLIENTE" : "DOMICILIARIO";
-        Servicio actualizado = service.contraOferta(id, monto, proposer);
+        Servicio actualizado = service.contraOferta(id, montoFinal, proposer);
+        return ResponseEntity.ok(actualizado);
+    }
+
+    @PostMapping("/{id}/accept")
+    public ResponseEntity<Servicio> accept(@PathVariable Long id) {
+        Servicio s = service.obtenerEstado(id);
+        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        if (!(principal instanceof User)) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        User u = (User) principal;
+
+        if (u.getRole() != Role.DOMICILIARIO) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo domiciliarios pueden aceptar servicios");
+        }
+
+        if (!"CREADO".equals(s.getEstado()) && !"OFERTA_EN_CURSO".equals(s.getEstado())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "El servicio no está disponible para aceptar");
+        }
+
+        Servicio actualizado = service.aceptarServicio(id, u.getId().longValue());
+        return ResponseEntity.ok(actualizado);
+    }
+
+    @PostMapping("/{id}/reject")
+    public ResponseEntity<Servicio> reject(@PathVariable Long id) {
+        Servicio s = service.obtenerEstado(id);
+        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        if (!(principal instanceof User)) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        User u = (User) principal;
+
+        if (u.getRole() != Role.DOMICILIARIO) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo domiciliarios pueden rechazar servicios");
+        }
+
+        if (!"CREADO".equals(s.getEstado()) && !"OFERTA_EN_CURSO".equals(s.getEstado())) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "El servicio no está disponible para rechazar");
+        }
+
+        Servicio actualizado = service.rechazarServicio(id, u.getId().longValue());
         return ResponseEntity.ok(actualizado);
     }
 
     @GetMapping("/{id}/status")
     public ResponseEntity<java.util.Map<String, Object>> status(@PathVariable Long id) {
-        Servicio s = service.obtenerEstado(id);
+        Servicio s;
+        try {
+            s = service.obtenerEstado(id);
+        } catch (RuntimeException e) {
+            // Si no existe servicio con ese id, intentamos obtener el último creado por cliente (id como idCliente)
+            s = service.obtenerUltimoPorCliente(id);
+        }
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         if (!(principal instanceof User)) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         User u = (User) principal;

@@ -7,6 +7,7 @@ import com.p2pdomicilios.P2pDomicilios.repositories.ServicioRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
 import java.util.Optional;
 
 @Service
@@ -36,14 +37,20 @@ public class ServicioService {
             servicio.getLatDestino(), servicio.getLonDestino()
         );
 
-        // 3. LÓGICA DE TARIFA DINÁMICA
-        // Ejemplo: $3.000 (Base) + ($1.500 por cada kilómetro)
-        double tarifaBase = 3000.0;
-        double precioPorKm = 1500.0;
-        double tarifaCalculada = tarifaBase + (distanciaKm * precioPorKm);
-        
-        // Redondeamos para que no queden decimales 
-        servicio.setTarifa(Math.round(tarifaCalculada * 100.0) / 100.0);
+        // 3. LÓGICA DE TARIFA
+        // Si el cliente envió una `tarifa` válida, respetarla; si no, calcularla dinámicamente.
+        Double tarifaProporcionada = servicio.getTarifa();
+        if (tarifaProporcionada != null && tarifaProporcionada > 0) {
+            servicio.setTarifa(Math.round(tarifaProporcionada * 100.0) / 100.0);
+        } else {
+            // Ejemplo: $3.000 (Base) + ($1.500 por cada kilómetro)
+            double tarifaBase = 3000.0;
+            double precioPorKm = 1500.0;
+            double tarifaCalculada = tarifaBase + (distanciaKm * precioPorKm);
+            // Redondeamos para que no queden decimales
+            servicio.setTarifa(Math.round(tarifaCalculada * 100.0) / 100.0);
+        }
+
         servicio.setOfertaActual(servicio.getTarifa());
         servicio.setUltimaOfertaPor(null);
         
@@ -59,15 +66,34 @@ public class ServicioService {
                 .orElseThrow(() -> new RuntimeException("Servicio no encontrado"));
     }
 
-    public Servicio aceptarServicio(Long id) {
+    public Servicio obtenerUltimoPorCliente(Long idCliente) {
+        return repositorio.findTopByIdClienteOrderByFechaSolicitudDesc(idCliente)
+                .orElseThrow(() -> new RuntimeException("No se encontró ningún servicio para el cliente"));
+    }
+
+    public List<Servicio> listarServiciosPendientes() {
+        return repositorio.findTop3ByEstadoOrderByIdServicioDesc("CREADO");
+    }
+
+    public Servicio aceptarServicio(Long id, Long idUsuarioDomiciliario) {
         Servicio servicio = obtenerEstado(id);
+        if (!"CREADO".equals(servicio.getEstado()) && !"OFERTA_EN_CURSO".equals(servicio.getEstado())) {
+            throw new RuntimeException("El servicio no está disponible para aceptar");
+        }
+
+        servicio.setIdDomiciliario(idUsuarioDomiciliario);
         servicio.setEstado("ACEPTADO");
         servicio.setTarifa(servicio.getOfertaActual() != null ? servicio.getOfertaActual() : servicio.getTarifa());
         return repositorio.save(servicio);
     }
 
-    public Servicio rechazarServicio(Long id) {
+    public Servicio rechazarServicio(Long id, Long idUsuarioDomiciliario) {
         Servicio servicio = obtenerEstado(id);
+        if (!"CREADO".equals(servicio.getEstado()) && !"OFERTA_EN_CURSO".equals(servicio.getEstado())) {
+            throw new RuntimeException("El servicio no está disponible para rechazar");
+        }
+
+        // El rechazo saca el pedido de la cola pendiente para que pase al siguiente flujo.
         servicio.setEstado("RECHAZADO");
         return repositorio.save(servicio);
     }
@@ -78,35 +104,16 @@ public class ServicioService {
         }
 
         Servicio servicio = obtenerEstado(id);
+
+        if (servicio.getIdDomiciliario() == null && !"CREADO".equals(servicio.getEstado()) && !"OFERTA_EN_CURSO".equals(servicio.getEstado())) {
+            throw new RuntimeException("El servicio no está disponible para contraoferta");
+        }
+
         servicio.setOfertaActual(monto);
         servicio.setUltimaOfertaPor(proposer);
         servicio.setEstado("OFERTA_EN_CURSO");
         return repositorio.save(servicio);
     }
-
-    public Servicio asignarDomiciliario(Long idServicio, Long idUsuarioDomiciliario, Long idUsuarioClienteSolicitante) {
-        Servicio servicio = obtenerEstado(idServicio);
-
-        if (servicio.getIdCliente() == null || !servicio.getIdCliente().equals(idUsuarioClienteSolicitante)) {
-            throw new RuntimeException("No eres el dueño de este servicio");
-        }
-
-        Optional<Domiciliario> domiciliarioOpt = domiciliarioRepository.findByUser_Id(idUsuarioDomiciliario.intValue());
-        Domiciliario domiciliario = domiciliarioOpt.orElseThrow(() -> new RuntimeException("El domiciliario no existe"));
-
-        if (!Boolean.TRUE.equals(domiciliario.getVerificado())) {
-            throw new RuntimeException("El domiciliario no está verificado");
-        }
-
-        if (!Boolean.TRUE.equals(domiciliario.getDisponible())) {
-            throw new RuntimeException("El domiciliario no está disponible");
-        }
-
-        servicio.setIdDomiciliario(idUsuarioDomiciliario);
-        servicio.setEstado("ASIGNADO");
-        return repositorio.save(servicio);
-    }
-
 
     private double calcularDistancia(double lat1, double lon1, double lat2, double lon2) {
         double radioTierra = 6371; // Radio de la Tierra en kilómetros

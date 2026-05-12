@@ -18,15 +18,6 @@ public class Servicio {
     @JsonProperty("direccion_destino") 
     private String direccionDestino;
 
-    // 🌟 Los nombres entre comillas deben ser IGUALES a los del frontend
-    @JsonProperty("id_cliente")
-    @Column(name = "id_cliente", nullable = false)
-    private Long idCliente;
-
-    @JsonProperty("id_domiciliario")
-    @Column(name = "id_domiciliario", nullable = false)
-    private Long idDomiciliario;
-
     @JsonProperty("lat_origen")
     private Double latOrigen;
 
@@ -39,7 +30,18 @@ public class Servicio {
     @JsonProperty("lon_destino")
     private Double lonDestino;
 
+    // 🌟 Los nombres entre comillas deben ser IGUALES a los del frontend
+    @JsonProperty("id_cliente")
+    @Column(name = "id_cliente", nullable = false)
+    private Long idCliente;
+
+    @JsonProperty("id_domiciliario")
+    @Column(name = "id_domiciliario", nullable = true)
+    private Long idDomiciliario;
+
     private Double tarifa;
+    private Double ofertaActual;
+    private String ultimaOfertaPor;
     private String estado;
     private String descripcion;
     

@@ -2,6 +2,7 @@ package com.p2pdomicilios.P2pDomicilios.repositories;
 
 import com.p2pdomicilios.P2pDomicilios.entities.Domiciliario;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -34,4 +35,6 @@ public interface DomiciliarioRepository extends JpaRepository<Domiciliario, Inte
         @Param("lon") double lon,
         @Param("radiusMeters") double radiusMeters
     );
+
+    Optional<Domiciliario> findByUser_Id(Integer userId);
 }

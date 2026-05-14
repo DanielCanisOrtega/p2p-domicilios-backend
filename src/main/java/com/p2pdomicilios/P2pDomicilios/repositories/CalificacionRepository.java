@@ -10,6 +10,9 @@ import java.util.Optional;
 @Repository
 public interface CalificacionRepository extends JpaRepository<Calificacion, Long> {
     Optional<Calificacion> findByIdServicio(Long idServicio);
+    Optional<Calificacion> findByIdServicioAndRoleCalificador(Long idServicio, String roleCalificador);
     List<Calificacion> findByIdDomiciliario(Integer idDomiciliario);
+    List<Calificacion> findByIdDomiciliarioAndRoleCalificador(Integer idDomiciliario, String roleCalificador);
     boolean existsByIdServicio(Long idServicio);
+    boolean existsByIdServicioAndRoleCalificador(Long idServicio, String roleCalificador);
 }

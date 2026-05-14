@@ -30,12 +30,17 @@ public class CalificacionController {
         }
 
         User user = (User) principal;
-        if (user.getRole() != Role.CLIENT) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo clientes pueden calificar");
+        if (user.getRole() == Role.CLIENT) {
+            CalificacionResponse response = calificacionService.createCalificacion(request, user.getId());
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
         }
 
-        CalificacionResponse response = calificacionService.createCalificacion(request, user.getId());
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        if (user.getRole() == Role.DOMICILIARIO) {
+            CalificacionResponse response = calificacionService.createCalificacionFromDomiciliario(request, user.getId());
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        }
+
+        throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Rol no permitido para calificar");
     }
 
     @GetMapping("/servicio/{idServicio}")
@@ -46,7 +51,31 @@ public class CalificacionController {
         }
 
         User user = (User) principal;
-        CalificacionResponse response = calificacionService.getCalificacion(idServicio, user.getId());
+        CalificacionResponse response = calificacionService.getCalificacion(idServicio, user.getId(), user.getRole());
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/servicio/{idServicio}/cliente")
+    public ResponseEntity<CalificacionResponse> getCalificacionCliente(@PathVariable Long idServicio) {
+        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        if (!(principal instanceof User)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        }
+
+        User user = (User) principal;
+        CalificacionResponse response = calificacionService.getCalificacion(idServicio, user.getId(), Role.CLIENT);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/servicio/{idServicio}/domiciliario")
+    public ResponseEntity<CalificacionResponse> getCalificacionDomiciliario(@PathVariable Long idServicio) {
+        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        if (!(principal instanceof User)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        }
+
+        User user = (User) principal;
+        CalificacionResponse response = calificacionService.getCalificacion(idServicio, user.getId(), Role.DOMICILIARIO);
         return ResponseEntity.ok(response);
     }
 }

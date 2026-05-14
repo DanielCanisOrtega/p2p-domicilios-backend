@@ -132,6 +132,7 @@ public class ServicioController {
         resp.put("oferta_actual", s.getOfertaActual());
         resp.put("tarifa", s.getTarifa());
         resp.put("ultima_oferta_por", s.getUltimaOfertaPor());
+        resp.put("tiempo_estimado", s.getTiempoEstimado());
         return ResponseEntity.ok(resp);
     }
 }

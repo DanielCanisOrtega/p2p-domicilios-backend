@@ -36,3 +36,14 @@ COMMENT ON COLUMN public.domiciliario.user_id IS 'FK al usuario que es domicilia
 COMMENT ON COLUMN public.domiciliario.vehiculo IS 'Tipo de vehículo (Moto, Bicicleta, etc)';
 COMMENT ON COLUMN public.domiciliario.placa IS 'Placa del vehículo';
 COMMENT ON COLUMN public.domiciliario.calificacion IS 'Calificación promedio del domiciliario (0-5)';
+
+-- Agregar columna para identificar quien califica
+ALTER TABLE public.calificacion
+ADD COLUMN IF NOT EXISTS role_calificador VARCHAR(20) DEFAULT 'CLIENT' NOT NULL;
+
+-- Permitir una calificación por rol y servicio
+ALTER TABLE public.calificacion
+DROP CONSTRAINT IF EXISTS calificacion_id_servicio_key;
+
+CREATE UNIQUE INDEX IF NOT EXISTS ux_calificacion_servicio_role
+ON public.calificacion (id_servicio, role_calificador);

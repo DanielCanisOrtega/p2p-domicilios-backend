@@ -19,4 +19,5 @@ public class CalificacionResponse {
     private Integer puntuacion;
     private String comentario;
     private LocalDateTime fechaCreacion;
+    private String roleCalificador;
 }

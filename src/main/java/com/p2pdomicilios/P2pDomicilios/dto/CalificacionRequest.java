@@ -21,4 +21,7 @@ public class CalificacionRequest {
     private Integer puntuacion;
 
     private String comentario;
+
+    // Solo requerido cuando califica el domiciliario
+    private Integer idCliente;
 }

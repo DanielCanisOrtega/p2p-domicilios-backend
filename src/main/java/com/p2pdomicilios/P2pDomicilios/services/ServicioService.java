@@ -8,10 +8,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Optional;
 
 @Service
 public class ServicioService {
+
+    private static final double AVG_SPEED_KMH = 30.0;
 
     @Autowired
     private ServicioRepository repositorio;
@@ -84,6 +85,7 @@ public class ServicioService {
         servicio.setIdDomiciliario(idUsuarioDomiciliario);
         servicio.setEstado("ACEPTADO");
         servicio.setTarifa(servicio.getOfertaActual() != null ? servicio.getOfertaActual() : servicio.getTarifa());
+        servicio.setTiempoEstimado(calcularTiempoEstimadoMinFromDomiciliario(servicio, idUsuarioDomiciliario));
         return repositorio.save(servicio);
     }
 
@@ -115,6 +117,23 @@ public class ServicioService {
         return repositorio.save(servicio);
     }
 
+    public Servicio actualizarTiempoEstimado(Long idServicio, double latDomiciliario, double lonDomiciliario) {
+        Servicio servicio = obtenerEstado(idServicio);
+
+        if (servicio.getLatOrigen() == null || servicio.getLonOrigen() == null) {
+            return servicio;
+        }
+
+        int minutos = calcularTiempoEstimadoMin(
+            latDomiciliario,
+            lonDomiciliario,
+            servicio.getLatOrigen(),
+            servicio.getLonOrigen()
+        );
+        servicio.setTiempoEstimado(minutos);
+        return repositorio.save(servicio);
+    }
+
     private double calcularDistancia(double lat1, double lon1, double lat2, double lon2) {
         double radioTierra = 6371; // Radio de la Tierra en kilómetros
         
@@ -128,5 +147,42 @@ public class ServicioService {
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         
         return radioTierra * c; // Resultado en Kilómetros
+    }
+
+    private int calcularTiempoEstimadoMinFromDomiciliario(Servicio servicio, Long idUsuarioDomiciliario) {
+        if (servicio.getLatOrigen() == null || servicio.getLonOrigen() == null) {
+            return 0;
+        }
+
+        if (idUsuarioDomiciliario == null) {
+            return 0;
+        }
+
+        Domiciliario domiciliario = domiciliarioRepository.findByUser_Id(idUsuarioDomiciliario.intValue())
+                .orElse(null);
+        if (domiciliario == null || domiciliario.getLatitud() == null || domiciliario.getLongitud() == null) {
+            return 0;
+        }
+
+        return calcularTiempoEstimadoMin(
+            domiciliario.getLatitud(),
+            domiciliario.getLongitud(),
+            servicio.getLatOrigen(),
+            servicio.getLonOrigen()
+        );
+    }
+
+    private int calcularTiempoEstimadoMin(double latOrigen, double lonOrigen, double latDestino, double lonDestino) {
+        double distanciaKm = calcularDistancia(latOrigen, lonOrigen, latDestino, lonDestino);
+        return calcularTiempoEstimadoMin(distanciaKm);
+    }
+
+    private int calcularTiempoEstimadoMin(double distanciaKm) {
+        if (distanciaKm <= 0) {
+            return 0;
+        }
+
+        double minutos = (distanciaKm / AVG_SPEED_KMH) * 60.0;
+        return (int) Math.max(1, Math.round(minutos));
     }
 }

@@ -9,7 +9,10 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "calificacion")
+@Table(
+    name = "calificacion",
+    uniqueConstraints = @UniqueConstraint(columnNames = {"id_servicio", "role_calificador"})
+)
 @Data
 @Builder
 @NoArgsConstructor
@@ -21,7 +24,7 @@ public class Calificacion {
     @Column(name = "id_calificacion")
     private Long idCalificacion;
 
-    @Column(name = "id_servicio", nullable = false, unique = true)
+    @Column(name = "id_servicio", nullable = false)
     private Long idServicio;
 
     @Column(name = "id_cliente", nullable = false)
@@ -29,6 +32,9 @@ public class Calificacion {
 
     @Column(name = "id_domiciliario", nullable = false)
     private Integer idDomiciliario;
+
+    @Column(name = "role_calificador", nullable = false)
+    private String roleCalificador;
 
     @Column(name = "puntuacion", nullable = false)
     private Integer puntuacion;

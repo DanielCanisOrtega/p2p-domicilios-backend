@@ -2,6 +2,7 @@ package com.p2pdomicilios.P2pDomicilios.services;
 
 import com.p2pdomicilios.P2pDomicilios.dto.DomiciliarioDTO;
 import com.p2pdomicilios.P2pDomicilios.entities.Domiciliario;
+import com.p2pdomicilios.P2pDomicilios.entities.User;
 import com.p2pdomicilios.P2pDomicilios.repositories.DomiciliarioRepository;
 import java.util.List;
 import java.util.Optional;
@@ -61,6 +62,20 @@ public class DomiciliarioService {
         }
 
         return domiciliario;
+    }
+
+    public Domiciliario updateLocation(User user, double lat, double lon, Boolean disponible) {
+        Domiciliario domiciliario = findByUserId(user.getId())
+                .orElseThrow(() -> new RuntimeException("El usuario no tiene registro de domiciliario"));
+
+        domiciliario.setLatitud(lat);
+        domiciliario.setLongitud(lon);
+
+        if (disponible != null) {
+            domiciliario.setDisponible(disponible);
+        }
+
+        return repository.save(domiciliario);
     }
 
     private double calculateDistance(double lat1, double lon1, double lat2, double lon2) {

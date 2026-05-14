@@ -8,6 +8,7 @@ import com.p2pdomicilios.P2pDomicilios.entities.Servicio;
 import com.p2pdomicilios.P2pDomicilios.repositories.CalificacionRepository;
 import com.p2pdomicilios.P2pDomicilios.repositories.DomiciliarioRepository;
 import com.p2pdomicilios.P2pDomicilios.repositories.ServicioRepository;
+import com.p2pdomicilios.P2pDomicilios.enums.Role;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,8 +41,8 @@ public class CalificacionService {
             throw new RuntimeException("El servicio debe estar completado para calificar");
         }
 
-        if (calificacionRepository.existsByIdServicio(request.getIdServicio())) {
-            throw new RuntimeException("Este servicio ya ha sido calificado");
+        if (calificacionRepository.existsByIdServicioAndRoleCalificador(request.getIdServicio(), Role.CLIENT.name())) {
+            throw new RuntimeException("Este servicio ya ha sido calificado por el cliente");
         }
 
         if (servicio.getIdDomiciliario() == null) {
@@ -56,6 +57,7 @@ public class CalificacionService {
                 .idDomiciliario(idDomiciliario)
                 .puntuacion(request.getPuntuacion())
                 .comentario(request.getComentario())
+                .roleCalificador(Role.CLIENT.name())
                 .build();
 
         calificacion = calificacionRepository.save(calificacion);
@@ -65,8 +67,50 @@ public class CalificacionService {
         return toResponse(calificacion);
     }
 
-    public CalificacionResponse getCalificacion(Long idServicio, Integer userId) {
-        Calificacion calificacion = calificacionRepository.findByIdServicio(idServicio)
+    @Transactional
+    public CalificacionResponse createCalificacionFromDomiciliario(CalificacionRequest request, Integer idDomiciliario) {
+        Servicio servicio = servicioRepository.findById(request.getIdServicio())
+                .orElseThrow(() -> new RuntimeException("Servicio no encontrado"));
+
+        if (servicio.getIdDomiciliario() == null || !servicio.getIdDomiciliario().equals(idDomiciliario.longValue())) {
+            throw new RuntimeException("No eres el domiciliario de este servicio");
+        }
+
+        String estado = servicio.getEstado();
+        if (!"ENTREGADO".equalsIgnoreCase(estado)
+            && !"COMPLETADO".equalsIgnoreCase(estado)
+            && !"ACEPTADO".equalsIgnoreCase(estado)) {
+            throw new RuntimeException("El servicio debe estar completado para calificar");
+        }
+
+        if (calificacionRepository.existsByIdServicioAndRoleCalificador(request.getIdServicio(), Role.DOMICILIARIO.name())) {
+            throw new RuntimeException("Este servicio ya ha sido calificado por el domiciliario");
+        }
+
+        if (servicio.getIdCliente() == null) {
+            throw new RuntimeException("Este servicio no tiene un cliente asignado");
+        }
+
+        if (request.getIdCliente() != null && !servicio.getIdCliente().equals(request.getIdCliente().longValue())) {
+            throw new RuntimeException("El cliente indicado no coincide con el servicio");
+        }
+
+        Calificacion calificacion = Calificacion.builder()
+                .idServicio(request.getIdServicio())
+                .idCliente(servicio.getIdCliente().intValue())
+                .idDomiciliario(idDomiciliario)
+                .puntuacion(request.getPuntuacion())
+                .comentario(request.getComentario())
+                .roleCalificador(Role.DOMICILIARIO.name())
+                .build();
+
+        calificacion = calificacionRepository.save(calificacion);
+        return toResponse(calificacion);
+    }
+
+    public CalificacionResponse getCalificacion(Long idServicio, Integer userId, Role role) {
+        String roleName = role.name();
+        Calificacion calificacion = calificacionRepository.findByIdServicioAndRoleCalificador(idServicio, roleName)
                 .orElseThrow(() -> new RuntimeException("Calificación no encontrada"));
 
         if (!calificacion.getIdCliente().equals(userId) &&
@@ -78,7 +122,10 @@ public class CalificacionService {
     }
 
     private void updateDomiciliarioRating(Integer idDomiciliario) {
-        List<Calificacion> calificaciones = calificacionRepository.findByIdDomiciliario(idDomiciliario);
+        List<Calificacion> calificaciones = calificacionRepository.findByIdDomiciliarioAndRoleCalificador(
+            idDomiciliario,
+            Role.CLIENT.name()
+        );
 
         if (!calificaciones.isEmpty()) {
             double promedio = calificaciones.stream()
@@ -103,6 +150,7 @@ public class CalificacionService {
                 .puntuacion(calificacion.getPuntuacion())
                 .comentario(calificacion.getComentario())
                 .fechaCreacion(calificacion.getFechaCreacion())
+                .roleCalificador(calificacion.getRoleCalificador())
                 .build();
     }
 }

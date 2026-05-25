@@ -14,7 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @RestController
-@RequestMapping("/api/orders") // Ruta base para endpoints 
+@RequestMapping("/api/orders") // Ruta base para endpoints
 public class ServicioController {
 
     private static final Logger log = LoggerFactory.getLogger(ServicioController.class);
@@ -39,29 +39,35 @@ public class ServicioController {
 
     @PostMapping("/{id}/counteroffer")
     public ResponseEntity<Servicio> counterOffer(
-        @PathVariable Long id,
-        @RequestBody(required = false) java.util.Map<String, Object> body,
-        @RequestParam(required = false) Double monto
-    ) {
+            @PathVariable Long id,
+            @RequestBody(required = false) java.util.Map<String, Object> body,
+            @RequestParam(required = false) Double monto) {
         Double montoFinal = monto;
         if (montoFinal == null && body != null && body.containsKey("monto")) {
             Object m = body.get("monto");
-            if (m instanceof Number) montoFinal = ((Number) m).doubleValue();
-            else if (m instanceof String) montoFinal = Double.parseDouble((String) m);
+            if (m instanceof Number)
+                montoFinal = ((Number) m).doubleValue();
+            else if (m instanceof String)
+                montoFinal = Double.parseDouble((String) m);
         }
 
         if (montoFinal == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Debes enviar monto en el body JSON {\"monto\": 7000} o como query param monto=7000");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Debes enviar monto en el body JSON {\"monto\": 7000} o como query param monto=7000");
         }
 
         Servicio s = service.obtenerEstado(id);
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if (!(principal instanceof User)) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        if (!(principal instanceof User))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         User u = (User) principal;
 
-        boolean isClient = (u.getRole() == Role.CLIENT && s.getIdCliente() != null && s.getIdCliente().equals(u.getId().longValue()));
+        boolean isClient = (u.getRole() == Role.CLIENT && s.getIdCliente() != null
+                && s.getIdCliente().equals(u.getId().longValue()));
         boolean isDomic = u.getRole() == Role.DOMICILIARIO;
-        if (!isClient && !isDomic) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo cliente o domiciliario pueden hacer contraofertas");
+        if (!isClient && !isDomic)
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Solo cliente o domiciliario pueden hacer contraofertas");
 
         if (isDomic && !"CREADO".equals(s.getEstado()) && !"OFERTA_EN_CURSO".equals(s.getEstado())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "El servicio no está disponible para contraoferta");
@@ -76,7 +82,8 @@ public class ServicioController {
     public ResponseEntity<Servicio> accept(@PathVariable Long id) {
         Servicio s = service.obtenerEstado(id);
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if (!(principal instanceof User)) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        if (!(principal instanceof User))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         User u = (User) principal;
 
         if (u.getRole() != Role.DOMICILIARIO) {
@@ -95,7 +102,8 @@ public class ServicioController {
     public ResponseEntity<Servicio> reject(@PathVariable Long id) {
         Servicio s = service.obtenerEstado(id);
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if (!(principal instanceof User)) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        if (!(principal instanceof User))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         User u = (User) principal;
 
         if (u.getRole() != Role.DOMICILIARIO) {
@@ -116,16 +124,40 @@ public class ServicioController {
         try {
             s = service.obtenerEstado(id);
         } catch (RuntimeException e) {
-            // Si no existe servicio con ese id, intentamos obtener el último creado por cliente (id como idCliente)
+            // Si no existe servicio con ese id, intentamos obtener el último creado por
+            // cliente (id como idCliente)
             s = service.obtenerUltimoPorCliente(id);
         }
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        if (!(principal instanceof User)) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        if (!(principal instanceof User))
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         User u = (User) principal;
 
-        boolean isClient = (u.getRole() == Role.CLIENT && s.getIdCliente() != null && s.getIdCliente().equals(u.getId().longValue()));
-        boolean isDomic = (u.getRole() == Role.DOMICILIARIO && s.getIdDomiciliario() != null && s.getIdDomiciliario().equals(u.getId().longValue()));
-        if (!isClient && !isDomic) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No tienes permiso para ver el estado de este servicio");
+        boolean isClient = (u.getRole() == Role.CLIENT
+                && s.getIdCliente() != null
+                && s.getIdCliente().equals(u.getId().longValue()));
+
+        boolean isDomic = false;
+
+        if (u.getRole() == Role.DOMICILIARIO) {
+
+            // Permitir polling mientras el pedido sigue abierto
+            if ("CREADO".equals(s.getEstado())
+                    || "OFERTA_EN_CURSO".equals(s.getEstado())) {
+                isDomic = true;
+            }
+
+            // Si ya fue asignado, solo el domiciliario asignado puede verlo
+            if (s.getIdDomiciliario() != null) {
+                isDomic = s.getIdDomiciliario().equals(u.getId().longValue());
+            }
+        }
+
+        if (!isClient && !isDomic) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "No tienes permiso para ver el estado de este servicio");
+        }
 
         java.util.Map<String, Object> resp = new java.util.HashMap<>();
         resp.put("estado", s.getEstado());

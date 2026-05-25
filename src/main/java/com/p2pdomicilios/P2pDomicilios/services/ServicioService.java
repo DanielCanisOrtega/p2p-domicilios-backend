@@ -76,6 +76,10 @@ public class ServicioService {
         return repositorio.findTop3ByEstadoOrderByIdServicioDesc("CREADO");
     }
 
+    public List<Servicio> listarServiciosPorCliente(Long idCliente) {
+        return repositorio.findByIdClienteOrderByFechaSolicitudDesc(idCliente);
+    }
+
     public Servicio aceptarServicio(Long id, Long idUsuarioDomiciliario) {
         Servicio servicio = obtenerEstado(id);
         if (!"CREADO".equals(servicio.getEstado()) && !"OFERTA_EN_CURSO".equals(servicio.getEstado())) {

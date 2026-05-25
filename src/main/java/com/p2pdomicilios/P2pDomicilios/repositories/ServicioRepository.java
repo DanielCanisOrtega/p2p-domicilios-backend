@@ -9,4 +9,5 @@ import org.springframework.stereotype.Repository;
 public interface ServicioRepository extends JpaRepository<Servicio, Long> {
 	List<Servicio> findTop3ByEstadoOrderByIdServicioDesc(String estado);
 	java.util.Optional<Servicio> findTopByIdClienteOrderByFechaSolicitudDesc(Long idCliente);
+	List<Servicio> findByIdClienteOrderByFechaSolicitudDesc(Long idCliente);
 }

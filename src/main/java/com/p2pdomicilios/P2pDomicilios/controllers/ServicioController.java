@@ -167,4 +167,19 @@ public class ServicioController {
         resp.put("tiempo_estimado", s.getTiempoEstimado());
         return ResponseEntity.ok(resp);
     }
+
+    @GetMapping("/client")
+    public ResponseEntity<java.util.List<Servicio>> listByClient() {
+        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        if (!(principal instanceof User)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        }
+
+        User u = (User) principal;
+        if (u.getRole() != Role.CLIENT) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo clientes pueden ver sus pedidos");
+        }
+
+        return ResponseEntity.ok(service.listarServiciosPorCliente(u.getId().longValue()));
+    }
 }

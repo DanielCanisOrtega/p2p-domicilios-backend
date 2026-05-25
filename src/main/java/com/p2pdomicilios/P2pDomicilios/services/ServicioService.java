@@ -80,6 +80,13 @@ public class ServicioService {
         return repositorio.findByIdClienteOrderByFechaSolicitudDesc(idCliente);
     }
 
+    public List<Servicio> listarServiciosActivosDomiciliario(Long idDomiciliario) {
+        return repositorio.findByIdDomiciliarioAndEstadoInOrderByFechaSolicitudDesc(
+            idDomiciliario,
+            java.util.List.of("ACEPTADO", "OFERTA_EN_CURSO")
+        );
+    }
+
     public Servicio aceptarServicio(Long id, Long idUsuarioDomiciliario) {
         Servicio servicio = obtenerEstado(id);
         if (!"CREADO".equals(servicio.getEstado()) && !"OFERTA_EN_CURSO".equals(servicio.getEstado())) {

@@ -60,6 +60,13 @@ public class DomiciliarioController {
         return ResponseEntity.ok(servicioService.listarServiciosPendientes());
     }
 
+    @GetMapping("/orders/active")
+    public ResponseEntity<List<Servicio>> activeOrders() {
+        User user = currentDomiciliario();
+        service.requireActiveDomiciliario(user.getId());
+        return ResponseEntity.ok(servicioService.listarServiciosActivosDomiciliario(user.getId().longValue()));
+    }
+
     @PostMapping("/orders/{id}/accept")
     public ResponseEntity<Servicio> accept(@PathVariable Long id) {
         User user = currentDomiciliario();

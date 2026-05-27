@@ -149,6 +149,34 @@ public class DomiciliarioController {
         return ResponseEntity.ok(update);
     }
 
+    @GetMapping("/orders/{id}/driver")
+    public ResponseEntity<DomiciliarioDTO> driverForOrder(@PathVariable Long id) {
+        Servicio servicio = servicioService.obtenerEstado(id);
+        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        if (!(principal instanceof User u)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        }
+
+        boolean isClient = (u.getRole() == Role.CLIENT
+            && servicio.getIdCliente() != null
+            && servicio.getIdCliente().equals(u.getId().longValue()));
+        boolean isDomic = (u.getRole() == Role.DOMICILIARIO
+            && servicio.getIdDomiciliario() != null
+            && servicio.getIdDomiciliario().equals(u.getId().longValue()));
+        if (!isClient && !isDomic) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No tienes permiso para ver el domiciliario");
+        }
+
+        if (servicio.getIdDomiciliario() == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Servicio sin domiciliario asignado");
+        }
+
+        Domiciliario domiciliario = service.findByUserId(servicio.getIdDomiciliario().intValue())
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Domiciliario no encontrado"));
+
+        return ResponseEntity.ok(DomiciliarioDTO.fromEntity(domiciliario));
+    }
+
     private User currentDomiciliario() {
         Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         if (!(principal instanceof User user)) {

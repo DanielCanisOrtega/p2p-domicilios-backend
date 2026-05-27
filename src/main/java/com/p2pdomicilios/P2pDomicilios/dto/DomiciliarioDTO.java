@@ -8,6 +8,7 @@ public class DomiciliarioDTO {
     private Integer id;
     private String nombre;
     private String email;
+    private String telefono;
     private Double latitud;
     private Double longitud;
     private Boolean disponible;
@@ -31,6 +32,7 @@ public class DomiciliarioDTO {
         if (domiciliario.getUser() != null) {
             dto.setNombre(domiciliario.getUser().getNombre());
             dto.setEmail(domiciliario.getUser().getEmail());
+            dto.setTelefono(domiciliario.getUser().getTelefono());
         }
 
         return dto;

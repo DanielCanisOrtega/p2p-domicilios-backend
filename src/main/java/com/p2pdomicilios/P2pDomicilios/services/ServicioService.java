@@ -12,13 +12,21 @@ import java.util.List;
 @Service
 public class ServicioService {
 
+    public static final String ESTADO_PENDIENTE = "PENDIENTE";
+    public static final String ESTADO_ACEPTADO = "ACEPTADO";
+    public static final String ESTADO_EN_CAMINO = "EN_CAMINO";
+    public static final String ESTADO_ENTREGADO = "ENTREGADO";
+    public static final String ESTADO_CANCELADO = "CANCELADO";
+
     private static final double AVG_SPEED_KMH = 30.0;
 
-    @Autowired
-    private ServicioRepository repositorio;
+    private final ServicioRepository repositorio;
+    private final DomiciliarioRepository domiciliarioRepository;
 
-    @Autowired
-    private DomiciliarioRepository domiciliarioRepository;
+    public ServicioService(ServicioRepository repositorio, DomiciliarioRepository domiciliarioRepository) {
+        this.repositorio = repositorio;
+        this.domiciliarioRepository = domiciliarioRepository;
+    }
 
     
     public Servicio crearServicio(Servicio servicio) {
@@ -44,10 +52,9 @@ public class ServicioService {
         if (tarifaProporcionada != null && tarifaProporcionada > 0) {
             servicio.setTarifa(Math.round(tarifaProporcionada * 100.0) / 100.0);
         } else {
-            // Ejemplo: $3.000 (Base) + ($1.500 por cada kilómetro)
             double tarifaBase = 3000.0;
-            double precioPorKm = 1500.0;
-            double tarifaCalculada = tarifaBase + (distanciaKm * precioPorKm);
+            double precioAdicionalKm = 1500.0;
+            double tarifaCalculada = tarifaBase + (distanciaKm * precioAdicionalKm);
             // Redondeamos para que no queden decimales
             servicio.setTarifa(Math.round(tarifaCalculada * 100.0) / 100.0);
         }
@@ -56,7 +63,7 @@ public class ServicioService {
         servicio.setUltimaOfertaPor(null);
         
         // 4. ESTADO INICIAL
-        servicio.setEstado("CREADO");
+        servicio.setEstado(ESTADO_PENDIENTE);
 
         // 5. GUARDAR EN NEON DB
         return repositorio.save(servicio);
@@ -73,7 +80,7 @@ public class ServicioService {
     }
 
     public List<Servicio> listarServiciosPendientes() {
-        return repositorio.findTop3ByEstadoOrderByIdServicioDesc("CREADO");
+        return repositorio.findTop3ByEstadoOrderByIdServicioDesc(ESTADO_PENDIENTE);
     }
 
     public List<Servicio> listarServiciosPorCliente(Long idCliente) {
@@ -83,18 +90,18 @@ public class ServicioService {
     public List<Servicio> listarServiciosActivosDomiciliario(Long idDomiciliario) {
         return repositorio.findByIdDomiciliarioAndEstadoInOrderByFechaSolicitudDesc(
             idDomiciliario,
-            java.util.List.of("ACEPTADO", "OFERTA_EN_CURSO")
+            java.util.List.of(ESTADO_ACEPTADO, ESTADO_EN_CAMINO)
         );
     }
 
     public Servicio aceptarServicio(Long id, Long idUsuarioDomiciliario) {
         Servicio servicio = obtenerEstado(id);
-        if (!"CREADO".equals(servicio.getEstado()) && !"OFERTA_EN_CURSO".equals(servicio.getEstado())) {
+        if (!ESTADO_PENDIENTE.equals(servicio.getEstado())) {
             throw new RuntimeException("El servicio no está disponible para aceptar");
         }
 
         servicio.setIdDomiciliario(idUsuarioDomiciliario);
-        servicio.setEstado("ACEPTADO");
+        servicio.setEstado(ESTADO_ACEPTADO);
         servicio.setTarifa(servicio.getOfertaActual() != null ? servicio.getOfertaActual() : servicio.getTarifa());
         servicio.setTiempoEstimado(calcularTiempoEstimadoMinFromDomiciliario(servicio, idUsuarioDomiciliario));
         return repositorio.save(servicio);
@@ -102,12 +109,12 @@ public class ServicioService {
 
     public Servicio rechazarServicio(Long id, Long idUsuarioDomiciliario) {
         Servicio servicio = obtenerEstado(id);
-        if (!"CREADO".equals(servicio.getEstado()) && !"OFERTA_EN_CURSO".equals(servicio.getEstado())) {
+        if (!ESTADO_PENDIENTE.equals(servicio.getEstado())) {
             throw new RuntimeException("El servicio no está disponible para rechazar");
         }
 
         // El rechazo saca el pedido de la cola pendiente para que pase al siguiente flujo.
-        servicio.setEstado("RECHAZADO");
+        servicio.setEstado(ESTADO_CANCELADO);
         return repositorio.save(servicio);
     }
 
@@ -118,14 +125,43 @@ public class ServicioService {
 
         Servicio servicio = obtenerEstado(id);
 
-        if (servicio.getIdDomiciliario() == null && !"CREADO".equals(servicio.getEstado()) && !"OFERTA_EN_CURSO".equals(servicio.getEstado())) {
+        if (servicio.getIdDomiciliario() == null && !ESTADO_PENDIENTE.equals(servicio.getEstado())) {
             throw new RuntimeException("El servicio no está disponible para contraoferta");
         }
 
         servicio.setOfertaActual(monto);
         servicio.setUltimaOfertaPor(proposer);
-        servicio.setEstado("OFERTA_EN_CURSO");
+        servicio.setEstado(ESTADO_PENDIENTE);
         return repositorio.save(servicio);
+    }
+
+    public Servicio cambiarEstado(Long id, String nuevoEstado) {
+        Servicio servicio = obtenerEstado(id);
+        if (!puedeTransicionar(servicio.getEstado(), nuevoEstado)) {
+            throw new RuntimeException("Transición de estado inválida");
+        }
+        servicio.setEstado(nuevoEstado);
+        return repositorio.save(servicio);
+    }
+
+    private boolean puedeTransicionar(String estadoActual, String nuevoEstado) {
+        if (estadoActual == null || nuevoEstado == null) {
+            return false;
+        }
+
+        if (estadoActual.equals(nuevoEstado)) {
+            return true;
+        }
+
+        return switch (estadoActual) {
+            case ESTADO_PENDIENTE ->
+                nuevoEstado.equals(ESTADO_ACEPTADO) || nuevoEstado.equals(ESTADO_CANCELADO);
+            case ESTADO_ACEPTADO ->
+                nuevoEstado.equals(ESTADO_EN_CAMINO) || nuevoEstado.equals(ESTADO_CANCELADO);
+            case ESTADO_EN_CAMINO ->
+                nuevoEstado.equals(ESTADO_ENTREGADO);
+            default -> false;
+        };
     }
 
     public Servicio actualizarTiempoEstimado(Long idServicio, double latDomiciliario, double lonDomiciliario) {

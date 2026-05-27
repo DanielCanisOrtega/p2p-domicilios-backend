@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.server.ResponseStatusException;
 import org.slf4j.Logger;
@@ -69,7 +70,7 @@ public class ServicioController {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                     "Solo cliente o domiciliario pueden hacer contraofertas");
 
-        if (isDomic && !"CREADO".equals(s.getEstado()) && !"OFERTA_EN_CURSO".equals(s.getEstado())) {
+        if (isDomic && !ServicioService.ESTADO_PENDIENTE.equals(s.getEstado())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "El servicio no está disponible para contraoferta");
         }
 
@@ -90,7 +91,7 @@ public class ServicioController {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo domiciliarios pueden aceptar servicios");
         }
 
-        if (!"CREADO".equals(s.getEstado()) && !"OFERTA_EN_CURSO".equals(s.getEstado())) {
+        if (!ServicioService.ESTADO_PENDIENTE.equals(s.getEstado())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "El servicio no está disponible para aceptar");
         }
 
@@ -110,7 +111,7 @@ public class ServicioController {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo domiciliarios pueden rechazar servicios");
         }
 
-        if (!"CREADO".equals(s.getEstado()) && !"OFERTA_EN_CURSO".equals(s.getEstado())) {
+        if (!ServicioService.ESTADO_PENDIENTE.equals(s.getEstado())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "El servicio no está disponible para rechazar");
         }
 
@@ -142,8 +143,7 @@ public class ServicioController {
         if (u.getRole() == Role.DOMICILIARIO) {
 
             // Permitir polling mientras el pedido sigue abierto
-            if ("CREADO".equals(s.getEstado())
-                    || "OFERTA_EN_CURSO".equals(s.getEstado())) {
+            if (ServicioService.ESTADO_PENDIENTE.equals(s.getEstado())) {
                 isDomic = true;
             }
 
@@ -165,7 +165,78 @@ public class ServicioController {
         resp.put("tarifa", s.getTarifa());
         resp.put("ultima_oferta_por", s.getUltimaOfertaPor());
         resp.put("tiempo_estimado", s.getTiempoEstimado());
+        resp.put("id_domiciliario", s.getIdDomiciliario());
         return ResponseEntity.ok(resp);
+    }
+
+    @PostMapping("/{id}/state")
+    public ResponseEntity<Servicio> changeState(
+            @PathVariable Long id,
+            @RequestBody(required = false) java.util.Map<String, Object> body,
+            @RequestParam(required = false) String estado) {
+        String nuevoEstado = estado;
+        if ((nuevoEstado == null || nuevoEstado.isBlank()) && body != null && body.containsKey("estado")) {
+            Object value = body.get("estado");
+            if (value != null) {
+                nuevoEstado = value.toString();
+            }
+        }
+
+        if (nuevoEstado == null || nuevoEstado.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Debes enviar estado en el body o query param");
+        }
+
+        String normalized = nuevoEstado.trim().toUpperCase();
+        if (!java.util.Set.of(
+                ServicioService.ESTADO_PENDIENTE,
+                ServicioService.ESTADO_ACEPTADO,
+                ServicioService.ESTADO_EN_CAMINO,
+                ServicioService.ESTADO_ENTREGADO,
+                ServicioService.ESTADO_CANCELADO
+        ).contains(normalized)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Estado inválido");
+        }
+
+        Servicio s = service.obtenerEstado(id);
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        User u = null;
+        if (authentication != null && authentication.getPrincipal() instanceof User) {
+            u = (User) authentication.getPrincipal();
+        }
+
+        if (u != null) {
+            boolean isClient = (u.getRole() == Role.CLIENT
+                    && s.getIdCliente() != null
+                    && s.getIdCliente().equals(u.getId().longValue()));
+            boolean isDomic = (u.getRole() == Role.DOMICILIARIO
+                    && s.getIdDomiciliario() != null
+                    && s.getIdDomiciliario().equals(u.getId().longValue()));
+
+            if (!isClient && !isDomic) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "No tienes permiso para cambiar el estado");
+            }
+
+            if (ServicioService.ESTADO_EN_CAMINO.equals(normalized)
+                    || ServicioService.ESTADO_ENTREGADO.equals(normalized)) {
+                if (!isDomic) {
+                    throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Solo el domiciliario puede cambiar a ese estado");
+                }
+            }
+
+            if (ServicioService.ESTADO_CANCELADO.equals(normalized)) {
+                if (!ServicioService.ESTADO_PENDIENTE.equals(s.getEstado())
+                        && !ServicioService.ESTADO_ACEPTADO.equals(s.getEstado())) {
+                    throw new ResponseStatusException(HttpStatus.CONFLICT, "No se puede cancelar este servicio");
+                }
+            }
+        }
+
+        try {
+            Servicio actualizado = service.cambiarEstado(id, normalized);
+            return ResponseEntity.ok(actualizado);
+        } catch (RuntimeException ex) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, ex.getMessage());
+        }
     }
 
     @GetMapping("/client")

@@ -37,6 +37,7 @@ public class SecurityConfig {
                 // Endpoints públicos
                 .requestMatchers("/auth/**").permitAll()
                 .requestMatchers("/ws/**").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/orders/*/state").permitAll()
                 .requestMatchers(HttpMethod.GET, "/drivers/nearby").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 // Todos los demás requieren autenticación

@@ -118,7 +118,7 @@ public class ServicioService {
         return repositorio.save(servicio);
     }
 
-    public Servicio contraOferta(Long id, Double monto, String proposer) {
+    public Servicio contraOferta(Long id, Double monto, String proposer, Integer idDomiciliario) {
         if (monto == null || monto <= 0) {
             throw new RuntimeException("El monto de la contraoferta debe ser mayor a cero");
         }
@@ -127,6 +127,19 @@ public class ServicioService {
 
         if (servicio.getIdDomiciliario() == null && !ESTADO_PENDIENTE.equals(servicio.getEstado())) {
             throw new RuntimeException("El servicio no está disponible para contraoferta");
+        }
+
+        if ("DOMICILIARIO".equalsIgnoreCase(proposer)) {
+            if (idDomiciliario == null) {
+                throw new RuntimeException("No se pudo identificar al domiciliario");
+            }
+
+            Long currentId = idDomiciliario.longValue();
+            if (servicio.getIdDomiciliario() == null) {
+                servicio.setIdDomiciliario(currentId);
+            } else if (!servicio.getIdDomiciliario().equals(currentId)) {
+                throw new RuntimeException("El servicio ya está asignado a otro domiciliario");
+            }
         }
 
         servicio.setOfertaActual(monto);

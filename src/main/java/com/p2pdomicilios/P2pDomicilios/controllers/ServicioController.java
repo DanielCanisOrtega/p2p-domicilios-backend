@@ -75,7 +75,8 @@ public class ServicioController {
         }
 
         String proposer = isClient ? "CLIENTE" : "DOMICILIARIO";
-        Servicio actualizado = service.contraOferta(id, montoFinal, proposer);
+        Integer idDomiciliario = isDomic ? u.getId() : null;
+        Servicio actualizado = service.contraOferta(id, montoFinal, proposer, idDomiciliario);
         return ResponseEntity.ok(actualizado);
     }
 

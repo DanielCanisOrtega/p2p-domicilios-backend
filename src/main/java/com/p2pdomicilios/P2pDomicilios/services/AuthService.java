@@ -27,6 +27,10 @@ public class AuthService {
         private final AuthenticationManager authenticationManager;
 
     public AuthResponse register(RegisterRequest request) {
+        if (request.getRole() == Role.ADMIN) {
+            throw new RuntimeException("No está permitido registrar usuarios administradores");
+        }
+
         // Validar si el usuario ya existe
         if (userRepository.existsByUsername(request.getUsername())) {
             throw new RuntimeException("El username ya está en uso");

@@ -37,4 +37,13 @@ public interface DomiciliarioRepository extends JpaRepository<Domiciliario, Inte
     );
 
     Optional<Domiciliario> findByUser_Id(Integer userId);
+
+    @Query("""
+        SELECT d
+        FROM Domiciliario d
+        JOIN FETCH d.user u
+        WHERE (:verificado IS NULL OR d.verificado = :verificado)
+        ORDER BY u.fechaRegistro DESC
+        """)
+    List<Domiciliario> findForAdmin(@Param("verificado") Boolean verificado);
 }

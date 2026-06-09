@@ -40,6 +40,7 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/orders/*/state").permitAll()
                 .requestMatchers(HttpMethod.GET, "/drivers/nearby").permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .requestMatchers("/admin/**").hasRole("ADMIN")
                 // Todos los demás requieren autenticación
                 .anyRequest().authenticated()
             )

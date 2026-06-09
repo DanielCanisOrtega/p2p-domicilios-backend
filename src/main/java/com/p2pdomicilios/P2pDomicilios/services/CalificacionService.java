@@ -14,6 +14,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.stream.Collectors;
+import com.p2pdomicilios.P2pDomicilios.dto.ServicioPendienteDTO;
 
 @Service
 public class CalificacionService {
@@ -139,6 +141,38 @@ public class CalificacionService {
                         domiciliarioRepository.save(domiciliario);
                     });
         }
+    }
+
+    public List<ServicioPendienteDTO> getPendientes(Integer userId, Role role) {
+        List<String> estados = List.of("ENTREGADO", "COMPLETADO", "ACEPTADO");
+        List<Servicio> servicios;
+
+        if (role == Role.CLIENT) {
+            servicios = servicioRepository.findByIdClienteAndEstadoInOrderByFechaSolicitudDesc(
+                userId.longValue(), estados);
+        } else if (role == Role.DOMICILIARIO) {
+            servicios = servicioRepository.findByIdDomiciliarioAndEstadoInOrderByFechaSolicitudDesc(
+                userId.longValue(), estados);
+        } else {
+            throw new RuntimeException("Rol no válido para calificar");
+        }
+
+        return servicios.stream()
+            .filter(s -> !calificacionRepository.existsByIdServicioAndRoleCalificador(
+                s.getIdServicio(), role.name()))
+            .map(this::toServicioPendienteDTO)
+            .collect(Collectors.toList());
+    }
+
+    private ServicioPendienteDTO toServicioPendienteDTO(Servicio servicio) {
+        return ServicioPendienteDTO.builder()
+                .idServicio(servicio.getIdServicio())
+                .direccionOrigen(servicio.getDireccionOrigen())
+                .direccionDestino(servicio.getDireccionDestino())
+                .descripcion(servicio.getDescripcion())
+                .estado(servicio.getEstado())
+                .fechaSolicitud(servicio.getFechaSolicitud())
+                .build();
     }
 
     private CalificacionResponse toResponse(Calificacion calificacion) {

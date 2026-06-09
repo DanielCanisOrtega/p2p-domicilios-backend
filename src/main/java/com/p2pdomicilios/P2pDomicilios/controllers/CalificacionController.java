@@ -2,10 +2,12 @@ package com.p2pdomicilios.P2pDomicilios.controllers;
 
 import com.p2pdomicilios.P2pDomicilios.dto.CalificacionRequest;
 import com.p2pdomicilios.P2pDomicilios.dto.CalificacionResponse;
+import com.p2pdomicilios.P2pDomicilios.dto.ServicioPendienteDTO;
 import com.p2pdomicilios.P2pDomicilios.entities.User;
 import com.p2pdomicilios.P2pDomicilios.enums.Role;
 import com.p2pdomicilios.P2pDomicilios.services.CalificacionService;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -77,5 +79,14 @@ public class CalificacionController {
         User user = (User) principal;
         CalificacionResponse response = calificacionService.getCalificacion(idServicio, user.getId(), Role.DOMICILIARIO);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/pendientes")
+    public ResponseEntity<List<ServicioPendienteDTO>> getPendientes() {
+        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        if (!(principal instanceof User user)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        }
+        return ResponseEntity.ok(calificacionService.getPendientes(user.getId(), user.getRole()));
     }
 }

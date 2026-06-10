@@ -18,6 +18,7 @@ public class AdminOrderListItemDTO {
     private String estado;
     private String direccionOrigen;
     private String direccionDestino;
+    private Double tarifa;
 
     public static AdminOrderListItemDTO fromEntity(Servicio servicio, User cliente, User domiciliario) {
         return AdminOrderListItemDTO.builder()
@@ -30,6 +31,7 @@ public class AdminOrderListItemDTO {
             .estado(servicio.getEstado())
             .direccionOrigen(servicio.getDireccionOrigen())
             .direccionDestino(servicio.getDireccionDestino())
+            .tarifa(servicio.getOfertaActual() != null ? servicio.getOfertaActual() : servicio.getTarifa())
             .build();
     }
 }

@@ -5,6 +5,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Data
 @Builder
 @NoArgsConstructor
@@ -16,4 +18,6 @@ public class IncidenciaResponse {
     private Long idServicio;
     private String descripcion;
     private String estado;
+    private LocalDateTime fechaCreacion;
+    private LocalDateTime fechaActualizacion;
 }

@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -25,6 +26,7 @@ public class IncidenciaService {
                 .idServicio(request.getIdServicio())
                 .descripcion(request.getDescripcion())
                 .estado("ABIERTO")
+                .fechaCreacion(LocalDateTime.now())
                 .build();
         incidencia = incidenciaRepository.save(incidencia);
         return toResponse(incidencia);
@@ -41,6 +43,7 @@ public class IncidenciaService {
         Incidencia incidencia = incidenciaRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Incidencia no encontrada"));
         incidencia.setEstado(request.getEstado());
+        incidencia.setFechaActualizacion(LocalDateTime.now());
         return toResponse(incidenciaRepository.save(incidencia));
     }
 
@@ -52,6 +55,8 @@ public class IncidenciaService {
                 .idServicio(incidencia.getIdServicio())
                 .descripcion(incidencia.getDescripcion())
                 .estado(incidencia.getEstado())
+                .fechaCreacion(incidencia.getFechaCreacion())
+                .fechaActualizacion(incidencia.getFechaActualizacion())
                 .build();
     }
 }
